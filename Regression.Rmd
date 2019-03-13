@@ -1,0 +1,123 @@
+---
+title: 'Ice cream regression project: Effect of flour composition on viscosity'
+author: "Gaia Carparelli, Marion Claudet, Martina Morea, Hugues Vinzant"
+output:
+  html_document: default
+  pdf_document: default
+fontsize: 12pt
+---
+## Introduction
+Here we introduce data. 
+In the article there is only a small part about viscosity, we need to focus on that and not the " performance" part
+Viscosity of the flours correlated with the chemical composition.They fitted a linear model  V = -115 + 4.15 M + 20.0 P -129 A + did an Analyis of variance --> this model showed that protein and ash content were 2 important factors which affected the viscosity, while moisture not relevant...? GOT THE SAME RESULTS FOR NOW
+
+## Methods
+
+####Exploratory data analysis
+- At first we deleted the "Code numbers variable"" from our data (doesn't make sense, it corresponds only to the number of lines).
+- QQ plot to check if the model follows a normal distribution
+- Plotted the scatterplots --> for each pair of variables to get visual information on possible correlations between any of them.
+- Vif --> also to test correlations
+- We fitted the linear model + anova on the same as in the paper
+- Residual vs fitted --> homoscedascity (same variance)
+- StepAIC --> improve the model by testing different combination (include correlation)
+- Anova of all model fit (original, backward, forward)
+
+
+
+```{r, echo=FALSE, results='hide', message=FALSE}
+library(csv)
+ice_cream <- read.csv("icecream.csv", 1)
+# We don't consider code numbers --> number of columns
+myvars <- c("moisture","protein","ash","viscosity")
+ice_cream <- ice_cream[myvars]
+```
+
+## Results
+
+### QQ plot
+
+```{r, echo=FALSE, message=FALSE, fig.cap = "Blablabla"}
+# Plotting QQ plot
+qqnorm(ice_cream$viscosity)
+qqline(ice_cream$viscosity,col = "red")
+```
+
+### Correlation
+
+```{r, echo=FALSE, message=FALSE, fig.cap = "Blablabla"}
+# Plotting scatter plot + correlation values
+library("PerformanceAnalytics")
+chart.Correlation(ice_cream, histogram=FALSE)
+
+fit <- lm(viscosity ~ moisture + protein + ash, data=ice_cream)
+library(car) 
+vif(fit)
+```
+
+### Regression model
+
+```{r, echo=FALSE, message=FALSE}
+# Multi linear regression
+formula(fit)
+coefficients(fit)
+cat("Ajusted R-squared :", summary(fit)$adj.r.squared)
+# correspond to ARTICLE V = -115 + 4.15 M + 20.0 P -129 A 
+```
+### StepAIC
+
+```{r, echo=FALSE, message=FALSE}
+library(MASS)
+
+fit1 <- lm(viscosity ~ (moisture+protein+ash)^3, data=ice_cream)
+fit2 <- lm(viscosity ~ 1, data=ice_cream)
+step1 <- stepAIC(fit1, direction = "backward")
+step2 <- stepAIC(fit2, direction="forward", scope=list(upper=fit1, lower=fit2))
+```
+
+### Anova new model
+
+```{r, echo=FALSE, message=FALSE}
+# Multi linear regression
+summary(step1)
+summary(step2)
+
+plot(step1,which = 1)
+```
+
+## Conclusion
+
+### QQ plot
+
+The distribution seems normal, with a little bit of tails --> short tailed: distribution almost normal, just a little bit more located at the center (less values that are far from the mean value than we would expect if the distribution was normal)
+
+Dot plot (values plotted separetely for each group) ??
+
+### Correlation
+
+It makes sense to look for the correlation between variables other than couples viscosity-ash / viscosity-protein / viscosity-mositure because it allows to decide whether to keep a parameter in the model or not in case two parameters are correlated
+
+The vifs are all under 5 so no need to remove a parameter to remove correlations
+
+### Regression model
+
+We fit the model with all parameters --> find the same results as in paper
+
+Verification plots were OK:
+
+THERE IS NO HOMOSCEDASCITY --> no sense to have anova?? --> rather say that it is homoscedastic if we don't consider "extreme" viscosity values (<20 or >80) : in the plot it is almost a horizontal line in that range but for more extreme viscosity values the homoscedasticity is not really observed --> maybe the model is more adequate for batter having viscosity between 20 and 80 
+
+outliers: only 3 points; not possible to remove them from the model since the values are in the expected ranges (in terms of measured proteins,ash and moisture), but maybe the difference of observed viscosity comes from a measurement error 
+
+### StepAIC
+
+We try a backward stepAIC to find a good balance between model fit and model complexity minimizing AIC also including combinations of parameters
+--> since backward selection can miss the optimal solution, we also try forward selection starting from the intercept 
+--> as a result: we find a model containing the parameters ash and protein (in both cases). We perform an anova on that fit to test the new model fit.
+
+### Anova new model
+
+With backward: Model complex but high adjusted R-squared
+With forward: Similar adjusted R-squared as the basic model so a bit less accurate that the model obtained from backward but simpler model (also check the p-values)
+
+(Which one to keep??)
